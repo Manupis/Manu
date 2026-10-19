@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Among Us: Turn-Based Tactics</title>
+    <!-- Tailwind CSS para utilitários de layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonte Google Orbitron / Rajdhani para clima Sci-Fi -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-space: #0b0d19;
+            --panel-bg: rgba(18, 24, 43, 0.85);
+            --neon-blue: #00f0ff;
+            --neon-red: #ff0055;
+            --neon-green: #00ff66;
+            --neon-yellow: #ffea00;
+            --neon-purple: #b026ff;
+            --neon-orange: #ff7700;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: var(--bg-space);
+            color: #ffffff;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Estrelas animadas no fundo */
+        .stars-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+            overflow: hidden;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: animateStar linear infinite;
+        }
+
+        @keyframes animateStar {
+            from { transform: translateY(0px); opacity: 0.2; }
+            50% { opacity: 1; }
+            to { transform: translateY(-1000px); opacity: 0.2; }
+        }
+
+        /* Painéis Sci-Fi com Vidro Neon */
+        .glass-card {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 240, 255, 0.05);
+            border-radius: 16px;
+        }
+
+        .glass-card-red {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 0, 85, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(255, 0, 85, 0.05);
+            border-radius: 16px;
+        }
+
+        /* Animações de Ação e Dano */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes attackLeft {
+            0% { transform: translateX(0) scale(1); }
+            50% { transform: translateX(80px) scale(1.15) rotate(5deg); }
+            100% { transform: translateX(0) scale(1); }
+        }
+
+        @keyframes attackRight {
+            0% { transform: translateX(0) scale(1); }
+            50% { transform: translateX(-80px) scale(1.15) rotate(-5deg); }
+            100% { transform: translateX(0) scale(1); }
+        }
+
+        .anim-attack-left { animation: attackLeft 0.5s ease-in-out; }
+        .anim-attack-right { animation: attackRight 0.5s ease-in-out; }
+
+        @keyframes takeHit {
+            0% { transform: translateX(0); filter: brightness(1); }
+            20% { transform: translateX(-15px) rotate(-5deg); filter: brightness(2) drop-shadow(0 0 10px red); }
+            40% { transform: translateX(15px) rotate(5deg); }
+            60% { transform: translateX(-10px); }
+            80% { transform: translateX(10px); }
+            100% { transform: translateX(0); filter: brightness(1); }
+        }
+
+        .anim-hit { animation: takeHit 0.5s ease-in-out; }
+
+        /* Popups de texto flutuante de Dano / Cura */
+        .damage-popup {
+            position: absolute;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 2rem;
+            pointer-events: none;
+            animation: floatUpAndFade 1.2s forwards ease-out;
+            z-index: 50;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        @keyframes floatUpAndFade {
+            0% { opacity: 1; transform: translateY(0) scale(0.8); }
+            30% { transform: translateY(-30px) scale(1.3); }
+            100% { opacity: 0; transform: translateY(-70px) scale(1); }
+        }
+
+        /* Botões customizados estilizados */
+        .btn-action {
+            position: relative;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.2s ease;
+            overflow: hidden;
+        }
+
+        .btn-action:hover:not(:disabled) {
+            transform: translateY(-2px);
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+        }
+
+        .btn-action:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+
+        .btn-action:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
+
+        /* Custom Scrollbar no Log */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0, 240, 255, 0.3);
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: var(--neon-blue);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-2 sm:p-4">
+
+    <!-- Fundo Estrelado -->
+    <div class="stars-bg" id="starsBg"></div>
+
+    <!-- Container Principal do Jogo -->
+    <div class="relative z-10 w-full max-w-6xl min-h-[90vh] flex flex-col justify-between">
+        
+        <!-- CABEÇALHO / NAVBAR -->
+        <header class="glass-card p-4 mb-4 flex justify-between items-center border-b border-cyan-500/30">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center font-orbitron font-bold text-cyan-400">
+                    🚀
+                </div>
+                <div>
+                    <h1 class="font-orbitron font-bold text-lg sm:text-2xl bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-400">
+                        AMONG US: BATALHA TÁTICA
+                    </h1>
+                    <p class="text-xs text-gray-400">Duelo RPG por Turnos na Nave Skeld</p>
+                </div>
+            </div>
+            
+            <button id="btnRestart" onclick="resetToMenu()" class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-300 transition text-sm font-semibold">
+                🔄 Menu Principal
+            </button>
+        </header>
+
+        <!-- TELA 1: SELEÇÃO DE MODO DE JOGO -->
+        <section id="screenModeSelect" class="flex-1 flex flex-col items-center justify-center gap-8 py-8 animate-float">
+            <div class="text-center max-w-lg">
+                <h2 class="font-orbitron text-3xl sm:text-4xl font-extrabold text-white mb-2 tracking-wider">
+                    SELECIONE O MODO
+                </h2>
+                <p class="text-gray-400 text-sm">Entre no campo de batalha espaço-temporal ou treine suas estratégias contra a IA.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl px-4">
+                <button onclick="selectGameMode('pve')" class="glass-card p-8 flex flex-col items-center text-center gap-4 group hover:border-cyan-400 transition-all duration-300">
+                    <div class="w-20 h-20 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-4xl group-hover:scale-110 transition-transform">
+                        🤖
+                    </div>
+                    <div>
+                        <h3 class="font-orbitron font-bold text-xl text-cyan-300">Modo Treino (PvE)</h3>
+                        <p class="text-xs text-gray-400 mt-2">Enfrente um Tripulante treinado pela IA para testar combos e estratégias.</p>
+                    </div>
+                </button>
+
+                <button onclick="selectGameMode('pvp')" class="glass-card-red p-8 flex flex-col items-center text-center gap-4 group hover:border-red-400 transition-all duration-300">
+                    <div class="w-20 h-20 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-4xl group-hover:scale-110 transition-transform">
+                        ⚔️
+                    </div>
+                    <div>
+                        <h3 class="font-orbitron font-bold text-xl text-red-400">Duelo Local (PvP 1v1)</h3>
+                        <p class="text-xs text-gray-400 mt-2">Dois jogadores no mesmo dispositivo. Que vença o melhor tático!</p>
+                    </div>
+                </button>
+            </div>
+        </section>
+
+        <!-- TELA 2: SELEÇÃO DE PERSONAGENS -->
+        <section id="screenCharSelect" class="hidden flex-1 flex flex-col gap-6">
+            <div class="text-center">
+                <h2 id="selectTitle" class="font-orbitron text-2xl sm:text-3xl font-extrabold text-cyan-400">
+                    JOGADOR 1: ESCOLHA SEU TRIPULANTE
+                </h2>
+                <p class="text-xs text-gray-400 mt-1">Cada personagem tem atributos e habilidades únicas baseadas no seu perfil.</p>
+            </div>
+
+            <!-- Grid de Personagens -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 px-2" id="charGrid">
+                <!-- Preenchido via JavaScript -->
+            </div>
+
+            <!-- Detalhes do Personagem Selecionado -->
+            <div id="charPreview" class="glass-card p-4 sm:p-6 flex flex-col md:flex-row gap-6 items-center border-t border-cyan-500/30">
+                <div class="w-32 h-32 flex-shrink-0 flex items-center justify-center bg-black/30 rounded-2xl border border-white/10 p-2" id="previewImage">
+                    <!-- SVG do boneco aqui -->
+                </div>
+                
+                <div class="flex-1 w-full space-y-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-orbitron text-2xl font-bold text-white" id="previewName">Selecione um Tripulante</h3>
+                            <p class="text-xs text-cyan-400 italic" id="previewRole">Função / Classe</p>
+                        </div>
+                        <span id="previewStatsBadge" class="px-3 py-1 bg-cyan-500/10 border border-cyan-400/30 rounded-full text-xs font-semibold text-cyan-300">
+                            Pronto para Batalha
+                        </span>
+                    </div>
+
+                    <!-- Atributos do Boneco -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div class="bg-black/30 p-2 rounded-lg border border-white/5">
+                            <span class="text-gray-400 block">❤️ Vida (HP)</span>
+                            <span class="font-orbitron font-bold text-sm text-green-400" id="statHp">-</span>
+                        </div>
+                        <div class="bg-black/30 p-2 rounded-lg border border-white/5">
+                            <span class="text-gray-400 block">⚔️ Ataque Base</span>
+                            <span class="font-orbitron font-bold text-sm text-red-400" id="statAtk">-</span>
+                        </div>
+                        <div class="bg-black/30 p-2 rounded-lg border border-white/5">
+                            <span class="text-gray-400 block">🛡️ Defesa/Armadura</span>
+                            <span class="font-orbitron font-bold text-sm text-blue-400" id="statDef">-</span>
+                        </div>
+                        <div class="bg-black/30 p-2 rounded-lg border border-white/5">
+                            <span class="text-gray-400 block">⚡ Iniciativa</span>
+                            <span class="font-orbitron font-bold text-sm text-yellow-400" id="statSpeed">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Habilidades -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                        <div class="bg-white/5 p-2 rounded border border-white/10">
+                            <span class="font-bold text-cyan-300 block" id="skill1Name">1. Básico</span>
+                            <span class="text-gray-400 text-[10px] leading-tight block" id="skill1Desc">-</span>
+                        </div>
+                        <div class="bg-white/5 p-2 rounded border border-white/10">
+                            <span class="font-bold text-yellow-300 block" id="skill2Name">2. Alternativo</span>
+                            <span class="text-gray-400 text-[10px] leading-tight block" id="skill2Desc">-</span>
+                        </div>
+                        <div class="bg-white/5 p-2 rounded border border-white/10">
+                            <span class="font-bold text-purple-300 block" id="skill3Name">3. Especial</span>
+                            <span class="text-gray-400 text-[10px] leading-tight block" id="skill3Desc">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button onclick="confirmCharacterSelection()" id="btnConfirmChar" disabled class="px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-orbitron font-bold text-white shadow-lg transition disabled:opacity-40">
+                    CONFIRMAR SELEÇÃO ➔
+                </button>
+            </div>
+        </section>
+
+        <!-- TELA 3: CAMPO DE BATALHA RPG -->
+        <section id="screenBattle" class="hidden flex-1 flex flex-col gap-4">
+            
+            <!-- ÁREA DE COMBATE (ARENA) -->
+            <div class="glass-card relative p-4 sm:p-8 min-h-[340px] flex justify-between items-center overflow-hidden bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-gray-950 to-black">
+                
+                <!-- Indicador de Turno no topo da Arena -->
+                <div class="absolute top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-black/60 border border-cyan-500/40 text-center z-20">
+                    <span id="turnIndicator" class="font-orbitron text-xs sm:text-sm font-bold text-cyan-400">
+                        RODADA 1: SEU TURNO
+                    </span>
+                </div>
+
+                <!-- JOGADOR 1 (ESQUERDA) -->
+                <div id="p1Container" class="relative flex flex-col items-center gap-2 z-10 w-44 sm:w-56">
+                    <!-- Status / HP Player 1 -->
+                    <div class="w-full bg-black/60 p-3 rounded-xl border border-cyan-500/30 backdrop-blur-md">
+                        <div class="flex justify-between items-center mb-1">
+                            <span id="p1Name" class="font-orbitron font-bold text-sm text-cyan-300">Player 1</span>
+                            <span id="p1HpText" class="text-xs font-mono text-gray-300">100/100</span>
+                        </div>
+                        <!-- Barra de HP P1 -->
+                        <div class="w-full h-3 bg-gray-800 rounded-full overflow-hidden border border-white/10">
+                            <div id="p1HpBar" class="h-full bg-gradient-to-r from-emerald-500 to-green-400 transition-all duration-500" style="width: 100%;"></div>
+                        </div>
+                        <!-- Buffs / Status -->
+                        <div id="p1StatusBadges" class="flex flex-wrap gap-1 mt-2 min-h-[18px]"></div>
+                    </div>
+
+                    <!-- Avatar / Sprite P1 -->
+                    <div id="p1Sprite" class="w-28 h-28 sm:w-36 sm:h-36 relative transition-transform">
+                        <!-- SVG injetado dinamicamente -->
+                    </div>
+                </div>
+
+                <!-- VS CENTRO / EFECTS -->
+                <div class="hidden sm:flex flex-col items-center justify-center opacity-30 pointer-events-none">
+                    <span class="font-orbitron text-5xl font-black text-white/20 italic">VS</span>
+                </div>
+
+                <!-- JOGADOR 2 / IA (DIREITA) -->
+                <div id="p2Container" class="relative flex flex-col items-center gap-2 z-10 w-44 sm:w-56">
+                    <!-- Status / HP Player 2 -->
+                    <div class="w-full bg-black/60 p-3 rounded-xl border border-red-500/30 backdrop-blur-md">
+                        <div class="flex justify-between items-center mb-1">
+                            <span id="p2Name" class="font-orbitron font-bold text-sm text-red-400">Player 2</span>
+                            <span id="p2HpText" class="text-xs font-mono text-gray-300">100/100</span>
+                        </div>
+                        <!-- Barra de HP P2 -->
+                        <div class="w-full h-3 bg-gray-800 rounded-full overflow-hidden border border-white/10">
+                            <div id="p2HpBar" class="h-full bg-gradient-to-r from-emerald-500 to-green-400 transition-all duration-500" style="width: 100%;"></div>
+                        </div>
+                        <!-- Buffs / Status -->
+                        <div id="p2StatusBadges" class="flex flex-wrap gap-1 mt-2 min-h-[18px]"></div>
+                    </div>
+
+                    <!-- Avatar / Sprite P2 -->
+                    <div id="p2Sprite" class="w-28 h-28 sm:w-36 sm:h-36 relative transition-transform transform -scale-x-100">
+                        <!-- SVG injetado dinamicamente -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- PAINEL INFERIOR: AÇÕES E LOGS -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                <!-- MENU DE HABILIDADES / AÇÕES DO JOGADOR ATIVO -->
+                <div class="lg:col-span-2 glass-card p-4 flex flex-col justify-between gap-3">
+                    <div class="flex justify-between items-center border-b border-white/10 pb-2">
+                        <span class="font-orbitron text-xs font-bold text-gray-300 uppercase tracking-wider">
+                            Comandos de Combate: <span id="activePlayerTurnText" class="text-cyan-400">Vez de Verde</span>
+                        </span>
+                        <span class="text-xs text-gray-400" id="cooldownNotice">Recarga de Especial: Pronto</span>
+                    </div>
+
+                    <!-- 3 BOTÕES DE ATAQUE E AÇÕES -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <!-- Ataque Básico -->
+                        <button id="btnSkill1" onclick="useSkill(1)" class="btn-action p-3 rounded-xl flex flex-col items-start gap-1">
+                            <div class="flex items-center justify-between w-full">
+                                <span class="font-orbitron font-bold text-sm text-cyan-300" id="bSkill1Title">Ataque Básico</span>
+                                <span class="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded">CD: 0</span>
+                            </div>
+                            <span class="text-[11px] text-gray-300 text-left line-clamp-2" id="bSkill1Desc">Causa dano físico direto ao alvo.</span>
+                        </button>
+
+                        <!-- Ataque Alternativo -->
+                        <button id="btnSkill2" onclick="useSkill(2)" class="btn-action p-3 rounded-xl flex flex-col items-start gap-1">
+                            <div class="flex items-center justify-between w-full">
+                                <span class="font-orbitron font-bold text-sm text-yellow-300" id="bSkill2Title">Ataque Tático</span>
+                                <span class="text-[10px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded" id="bSkill2Cd">CD: 1</span>
+                            </div>
+                            <span class="text-[11px] text-gray-300 text-left line-clamp-2" id="bSkill2Desc">Dano com efeito tático adicional.</span>
+                        </button>
+
+                        <!-- Ataque Especial -->
+                        <button id="btnSkill3" onclick="useSkill(3)" class="btn-action p-3 rounded-xl flex flex-col items-start gap-1">
+                            <div class="flex items-center justify-between w-full">
+                                <span class="font-orbitron font-bold text-sm text-purple-300" id="bSkill3Title">Especial Supremo</span>
+                                <span class="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded" id="bSkill3Cd">CD: 3</span>
+                            </div>
+                            <span class="text-[11px] text-gray-300 text-left line-clamp-2" id="bSkill3Desc">Ataque devastador exclusivo do personagem.</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- LOG DE BATALHA COMUNICADOR SKELD -->
+                <div class="glass-card p-4 flex flex-col justify-between h-48 lg:h-auto">
+                    <div class="font-orbitron text-xs font-bold text-cyan-400 border-b border-white/10 pb-1 mb-2 flex items-center justify-between">
+                        <span>📡 LOG DA NAVE</span>
+                        <span class="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
+                    </div>
+                    
+                    <div id="battleLog" class="flex-1 overflow-y-auto space-y-1.5 text-xs custom-scroll pr-1">
+                        <p class="text-gray-400 italic">Os sistemas de combate foram iniciados...</p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- TELA 4: VITÓRIA / FIM DE JOGO (MODAL / OVERLAY) -->
+        <div id="modalVictory" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div class="glass-card max-w-md w-full p-6 text-center flex flex-col items-center gap-4 border-2 border-cyan-400 animate-float">
+                <div class="text-6xl" id="victoryEmoji">🏆</div>
+                <div>
+                    <h2 class="font-orbitron text-2xl font-black text-white" id="victoryTitle">VITÓRIA!</h2>
+                    <p class="text-sm text-gray-300 mt-1" id="victoryDesc">O tripulante domina o setor de combate.</p>
+                </div>
+                
+                <div class="w-full bg-white/5 p-4 rounded-xl border border-white/10 text-xs space-y-1" id="victoryStats">
+                    <!-- Estatísticas da partida -->
+                </div>
+
+                <div class="flex gap-3 w-full mt-2">
+                    <button onclick="restartBattle()" class="flex-1 py-3 rounded-xl bg-cyan-500/20 border border-cyan-400 text-cyan-300 font-orbitron font-bold hover:bg-cyan-500/30 transition text-sm">
+                        ⚔️ Revanche
+                    </button>
+                    <button onclick="resetToMenu()" class="flex-1 py-3 rounded-xl bg-purple-500/20 border border-purple-400 text-purple-300 font-orbitron font-bold hover:bg-purple-500/30 transition text-sm">
+                        🚀 Menu
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RODAPÉ DE STATUS -->
+        <footer class="text-center text-xs text-gray-500 py-2">
+            Among Us RPG Tático • Produzido em HTML5 Vanilla & CSS Moderno
+        </footer>
+
+    </div>
+
+    <!-- SCRIPT DA LÓGICA E REGRAS DO RPG -->
+    <script>
+        /* ==========================================================================
+           1. BANCO DE DADOS E ESTRUTURA DOS BONECOS (BALANCEADOS)
+           ========================================================================== */
+        
+        // Definição dos SVGs estilizados para cada cor/personagem de Among Us
+        function getCrewmateSVG(colorHex, hatType = 'none') {
+            let hatSVG = '';
+            if (hatType === 'captain') {
+                hatSVG = `<path d="M 35 25 L 65 25 L 60 15 L 40 15 Z" fill="#eab308" />
+                          <circle cx="50" cy="20" r="3" fill="#ffffff"/>`;
+            } else if (hatType === 'leaf') {
+                hatSVG = `<path d="M 50 25 Q 60 10 70 18 Q 60 22 50 25 Z" fill="#22c55e" />`;
+            } else if (hatType === 'horns') {
+                hatSVG = `<path d="M 38 25 Q 30 10 35 5 Q 42 12 42 25 Z" fill="#ef4444" />
+                          <path d="M 62 25 Q 70 10 65 5 Q 58 12 58 25 Z" fill="#ef4444" />`;
+            }
+
+            return `
+            <svg viewBox="0 0 100 110" class="w-full h-full drop-shadow-[0_10px_15px_rgba(0,0,0,0.6)]">
+                <!-- Mochila -->
+                <rect x="20" y="42" width="18" height="42" rx="8" fill="${colorHex}" filter="brightness(0.75)"/>
+                <!-- Corpo Principal -->
+                <rect x="32" y="28" width="48" height="62" rx="24" fill="${colorHex}"/>
+                <!-- Pernas -->
+                <rect x="36" y="75" width="16" height="22" rx="7" fill="${colorHex}" filter="brightness(0.85)"/>
+                <rect x="58" y="75" width="16" height="22" rx="7" fill="${colorHex}" filter="brightness(0.85)"/>
+                <!-- Sombra entre pernas -->
+                <path d="M 52 78 L 52 90" stroke="#000000" stroke-width="3" opacity="0.3"/>
+                <!-- Visor Cyberpunk -->
+                <ellipse cx="66" cy="46" rx="18" ry="12" fill="#93c5fd" stroke="#1e3a8a" stroke-width="2.5"/>
+                <ellipse cx="62" cy="43" rx="10" ry="5" fill="#ffffff" opacity="0.7"/>
+                <!-- Chapéu / Acessório -->
+                ${hatSVG}
+            </svg>`;
+        }
+
+        const CHARACTERS = [
+            {
+                id: 'verde',
+                name: 'Verde (Toxico)',
+                role: 'Suporte / Dano Over Time',
+                color: '#22c55e',
+                hat: 'leaf',
+                hp: 125,
+                maxHp: 125,
+                atk: 22,
+                def: 12,
+                speed: 14,
+                critChance: 0.15,
+                skills: {
+                    1: { name: 'Soco Contaminado', desc: 'Ataque básico rápido. Causa dano físico.', cd: 0, currentCd: 0 },
+                    2: { name: 'Vazamento Tópico', desc: 'Aplica Envenenamento. Causa dano contínuo por 3 turnos.', cd: 2, currentCd: 0 },
+                    3: { name: 'Ejeção Tóxica', desc: 'Super ataque que cura 20% da própria vida e causa alto dano.', cd: 3, currentCd: 0 }
+                }
+            },
+            {
+                id: 'laranja',
+                name: 'Laranja (Engenheiro)',
+                role: 'Tanque / Escudo',
+                color: '#f97316',
+                hat: 'none',
+                hp: 155,
+                maxHp: 155,
+                atk: 18,
+                def: 22,
+                speed: 8,
+                critChance: 0.10,
+                skills: {
+                    1: { name: 'Chave Inglesa', desc: 'Golpe pesado com ferramenta de manutenção.', cd: 0, currentCd: 0 },
+                    2: { name: 'Barreira de Duto', desc: 'Ganha um Escudo de Armadura (+15 Defesa por 2 turnos).', cd: 2, currentCd: 0 },
+                    3: { name: 'Sobrecarga do Reator', desc: 'Causa dano maciço que ignora parte da defesa inimiga.', cd: 4, currentCd: 0 }
+                }
+            },
+            {
+                id: 'capitao',
+                name: 'Capitão (Líder)',
+                role: 'Equilibrado / Crítico',
+                color: '#eab308',
+                hat: 'captain',
+                hp: 135,
+                maxHp: 135,
+                atk: 25,
+                def: 14,
+                speed: 12,
+                critChance: 0.25,
+                skills: {
+                    1: { name: 'Comando do Aço', desc: 'Ataque preciso com espada laser de capitão.', cd: 0, currentCd: 0 },
+                    2: { name: 'Reunião de Emergência', desc: 'Aumenta sua própria Chance de Crítico em +30% no próximo turno.', cd: 2, currentCd: 0 },
+                    3: { name: 'Votação Compulsória', desc: 'Dano crítico garantido se o acerto for bem sucedido.', cd: 3, currentCd: 0 }
+                }
+            },
+            {
+                id: 'roxo',
+                name: 'Roxo (Impostor)',
+                role: 'Assassino Burst',
+                color: '#a855f7',
+                hat: 'horns',
+                hp: 110,
+                maxHp: 110,
+                atk: 32,
+                def: 8,
+                speed: 18,
+                critChance: 0.20,
+                skills: {
+                    1: { name: 'Ataque Furtivo', desc: 'Corte rápido com lâmina oculta.', cd: 0, currentCd: 0 },
+                    2: { name: 'Sabotagem de Luzes', desc: 'Cega o inimigo, reduzindo seu ataque por 2 turnos.', cd: 2, currentCd: 0 },
+                    3: { name: 'Eliminação Silenciosa', desc: 'Golpe devastador. Causa 1.8x de dano base.', cd: 3, currentCd: 0 }
+                }
+            },
+            {
+                id: 'azul',
+                name: 'Azul (Cientista)',
+                role: 'Controle / Tático',
+                color: '#3b82f6',
+                hat: 'none',
+                hp: 120,
+                maxHp: 120,
+                atk: 24,
+                def: 15,
+                speed: 15,
+                critChance: 0.15,
+                skills: {
+                    1: { name: 'Raio de Scan', desc: 'Disparo de energia vital.', cd: 0, currentCd: 0 },
+                    2: { name: 'Injeção de Adrenalina', desc: 'Cura 30 HP e aumenta a Iniciativa temporariamente.', cd: 3, currentCd: 0 },
+                    3: { name: 'Pulso Eletromagnético', desc: 'Causa dano e reseta 1 turno de cooldown do adversário.', cd: 3, currentCd: 0 }
+                }
+            },
+            {
+                id: 'lima',
+                name: 'Lima (Veloz)',
+                role: 'Agilidade / Esquiva',
+                color: '#84cc16',
+                hat: 'leaf',
+                hp: 115,
+                maxHp: 115,
+                atk: 26,
+                def: 10,
+                speed: 20,
+                critChance: 0.30,
+                skills: {
+                    1: { name: 'Chute Rápido', desc: 'Ataque veloz com alta taxa de acerto.', cd: 0, currentCd: 0 },
+                    2: { name: 'Passos Furtivos', desc: 'Aumenta a esquiva em 40% no próximo turno.', cd: 2, currentCd: 0 },
+                    3: { name: 'Combo da Ventilação', desc: 'Ataca 2 vezes em rápida sequência.', cd: 3, currentCd: 0 }
+                }
+            }
+        ];
+
+        /* ==========================================================================
+           2. ESTADO DO JOGO (GAME STATE)
+           ========================================================================== */
+        let gameState = {
+            mode: 'pve', // 'pve' ou 'pvp'
+            selectingPlayer: 1, // 1 ou 2
+            p1Char: null,
+            p2Char: null,
+            selectedCharTemp: null,
+            currentTurn: 1, // 1 para P1, 2 para P2
+            round: 1,
+            isBattleOver: false
+        };
+
+        /* ==========================================================================
+           3. INICIALIZAÇÃO DE TELAS E SELEÇÃO DE MODO
+           ========================================================================== */
+        
+        function selectGameMode(mode) {
+            gameState.mode = mode;
+            gameState.selectingPlayer = 1;
+            document.getElementById('screenModeSelect').classList.add('hidden');
+            document.getElementById('screenCharSelect').classList.remove('hidden');
+            document.getElementById('btnRestart').classList.remove('hidden');
+            
+            setupCharSelectScreen();
+        }
+
+        function setupCharSelectScreen() {
+            const grid = document.getElementById('charGrid');
+            grid.innerHTML = '';
+
+            const title = document.getElementById('selectTitle');
+            if (gameState.mode === 'pvp') {
+                title.innerText = gameState.selectingPlayer === 1 
+                    ? 'JOGADOR 1: ESCOLHA SEU TRIPULANTE' 
+                    : 'JOGADOR 2: ESCOLHA SEU TRIPULANTE';
+            } else {
+                title.innerText = 'ESCOLHA SEU TRIPULANTE DE COMBATE';
+            }
+
+            CHARACTERS.forEach(char => {
+                const card = document.createElement('div');
+                card.className = `glass-card p-3 flex flex-col items-center gap-2 cursor-pointer hover:border-cyan-400 transition transform hover:-translate-y-1 border-2 border-transparent`;
+                card.id = `card-${char.id}`;
+                card.onclick = () => previewCharacter(char);
+
+                card.innerHTML = `
+                    <div class="w-16 h-16">
+                        ${getCrewmateSVG(char.color, char.hat)}
+                    </div>
+                    <span class="font-orbitron text-xs font-bold text-center text-white">${char.name}</span>
+                    <span class="text-[10px] text-gray-400 text-center">${char.role.split('/')[0]}</span>
+                `;
+                grid.appendChild(card);
+            });
+
+            // Seleciona o primeiro por padrão
+            previewCharacter(CHARACTERS[0]);
+        }
+
+        function previewCharacter(char) {
+            gameState.selectedCharTemp = char;
+
+            // Destaque visual do card
+            CHARACTERS.forEach(c => {
+                const el = document.getElementById(`card-${c.id}`);
+                if (el) el.style.borderColor = (c.id === char.id) ? char.color : 'transparent';
+            });
+
+            // Atualiza preview
+            document.getElementById('previewImage').innerHTML = getCrewmateSVG(char.color, char.hat);
+            document.getElementById('previewName').innerText = char.name;
+            document.getElementById('previewName').style.color = char.color;
+            document.getElementById('previewRole').innerText = char.role;
+
+            document.getElementById('statHp').innerText = char.hp;
+            document.getElementById('statAtk').innerText = char.atk;
+            document.getElementById('statDef').innerText = char.def;
+            document.getElementById('statSpeed').innerText = char.speed;
+
+            document.getElementById('skill1Name').innerText = `1. ${char.skills[1].name}`;
+            document.getElementById('skill1Desc').innerText = char.skills[1].desc;
+
+            document.getElementById('skill2Name').innerText = `2. ${char.skills[2].name}`;
+            document.getElementById('skill2Desc').innerText = char.skills[2].desc;
+
+            document.getElementById('skill3Name').innerText = `3. ${char.skills[3].name}`;
+            document.getElementById('skill3Desc').innerText = char.skills[3].desc;
+
+            document.getElementById('btnConfirmChar').disabled = false;
+        }
+
+        function confirmCharacterSelection() {
+            if (!gameState.selectedCharTemp) return;
+
+            // Clona o objeto para o jogador
+            const charCopy = JSON.parse(JSON.stringify(gameState.selectedCharTemp));
+            // Adiciona controle de buffs/debuffs ativos
+            charCopy.buffs = { poison: 0, shield: 0, dodge: 0, critBoost: 0, attackDebuff: 0 };
+
+            if (gameState.selectingPlayer === 1) {
+                gameState.p1Char = charCopy;
+                
+                if (gameState.mode === 'pvp') {
+                    // Passa para escolha do Player 2
+                    gameState.selectingPlayer = 2;
+                    gameState.selectedCharTemp = null;
+                    setupCharSelectScreen();
+                    return;
+                } else {
+                    // Seleciona inimigo aleatório para a IA no PvE
+                    let availableEnemies = CHARACTERS.filter(c => c.id !== charCopy.id);
+                    let randomEnemy = availableEnemies[Math.floor(Math.random() * availableEnemies.length)];
+                    gameState.p2Char = JSON.parse(JSON.stringify(randomEnemy));
+                    gameState.p2Char.buffs = { poison: 0, shield: 0, dodge: 0, critBoost: 0, attackDebuff: 0 };
+                }
+            } else {
+                gameState.p2Char = charCopy;
+            }
+
+            // Iniciar a Batalha
+            startBattle();
+        }
+
+        /* ==========================================================================
+           4. LÓGICA DE COMBATE RPG POR TURNOS
+           ========================================================================== */
+
+        function startBattle() {
+            document.getElementById('screenCharSelect').classList.add('hidden');
+            document.getElementById('screenBattle').classList.remove('hidden');
+
+            // Configurar Sprites e Nomes
+            document.getElementById('p1Name').innerText = gameState.p1Char.name;
+            document.getElementById('p1Name').style.color = gameState.p1Char.color;
+            document.getElementById('p1Sprite').innerHTML = getCrewmateSVG(gameState.p1Char.color, gameState.p1Char.hat);
+
+            document.getElementById('p2Name').innerText = (gameState.mode === 'pve' ? 'IA: ' : '') + gameState.p2Char.name;
+            document.getElementById('p2Name').style.color = gameState.p2Char.color;
+            document.getElementById('p2Sprite').innerHTML = getCrewmateSVG(gameState.p2Char.color, gameState.p2Char.hat);
+
+            // Determinar quem começa pela Iniciativa (Speed)
+            if (gameState.p1Char.speed >= gameState.p2Char.speed) {
+                gameState.currentTurn = 1;
+            } else {
+                gameState.currentTurn = 2;
+            }
+
+            gameState.round = 1;
+            gameState.isBattleOver = false;
+
+            logMessage(`⚔️ A Batalha começou! ${getTurnActor().name} tem maior iniciativa e ataca primeiro.`);
+            updateUI();
+
+            // Se for a vez da IA
+            if (gameState.mode === 'pve' && gameState.currentTurn === 2) {
+                setTimeout(playAITurn, 1200);
+            }
+        }
+
+        function getTurnActor() {
+            return gameState.currentTurn === 1 ? gameState.p1Char : gameState.p2Char;
+        }
+
+        function getOpponentActor() {
+            return gameState.currentTurn === 1 ? gameState.p2Char : gameState.p1Char;
+        }
+
+        function useSkill(skillNumber) {
+            if (gameState.isBattleOver) return;
+
+            const actor = getTurnActor();
+            const target = getOpponentActor();
+            const skill = actor.skills[skillNumber];
+
+            if (skill.currentCd > 0) {
+                logMessage(`⚠️ Habilidade em recarga! Aguarde ${skill.currentCd} turno(s).`);
+                return;
+            }
+
+            // Animação de Ataque no Sprite
+            const spriteId = gameState.currentTurn === 1 ? 'p1Sprite' : 'p2Sprite';
+            const animClass = gameState.currentTurn === 1 ? 'anim-attack-left' : 'anim-attack-right';
+            const spriteEl = document.getElementById(spriteId);
+            
+            spriteEl.classList.add(animClass);
+            setTimeout(() => spriteEl.classList.remove(animClass), 500);
+
+            // Execução dos efeitos da Habilidade
+            executeSkillEffects(actor, target, skillNumber);
+
+            // Iniciar tempo de recarga
+            skill.currentCd = skill.cd + 1; // +1 porque vai decrementar ao mudar turno
+
+            // Checar se a batalha terminou
+            if (checkBattleEnd()) return;
+
+            // Passar o Turno
+            endTurn();
+        }
+
+        function executeSkillEffects(actor, target, skillNumber) {
+            let baseDamage = actor.atk;
+            
+            // Efeito de Debuff de ataque se estiver cego
+            if (actor.buffs.attackDebuff > 0) {
+                baseDamage *= 0.7;
+            }
+
+            let isCrit = Math.random() < (actor.critChance + (actor.buffs.critBoost > 0 ? 0.3 : 0));
+            let critMult = isCrit ? 1.75 : 1.0;
+
+            // Esquiva
+            if (target.buffs.dodge > 0 && Math.random() < 0.5) {
+                logMessage(`💨 ${target.name} ESQUIVOU do ataque de ${actor.name}!`);
+                showDamagePopup(gameState.currentTurn === 1 ? 'p2Sprite' : 'p1Sprite', 'ESQUIVOU!', '#38bdf8');
+                return;
+            }
+
+            // Habilidades específicas
+            if (skillNumber === 1) {
+                // Ataque básico
+                let totalDef = target.def + (target.buffs.shield > 0 ? 15 : 0);
+                let finalDamage = Math.max(5, Math.round((baseDamage * critMult) - (totalDef * 0.4)));
+                
+                target.hp = Math.max(0, target.hp - finalDamage);
+                triggerHitAnimation(gameState.currentTurn === 1 ? 'p2Sprite' : 'p1Sprite');
+                showDamagePopup(gameState.currentTurn === 1 ? 'p2Sprite' : 'p1Sprite', `-${finalDamage}`, isCrit ? '#ffea00' : '#ff0055');
+
+                logMessage(`⚔️ ${actor.name} usou <b>${actor.skills[1].name}</b> e causou <b>${finalDamage}</b> de dano ${isCrit ? '💥 CRÍTICO!' : ''}`);
+            } 
+            else if (skillNumber === 2) {
+                // Habilidades táticas alternadas por personagem
+                if (actor.id === 'verde') {
+                    target.buffs.poison = 3; // 3 turnos de veneno
+                    logMessage(`🧪 ${actor.name} usou <b>Vazamento Tópico</b>! ${target.name} foi envenenado!`);
+                } 
+                else if (actor.id === 'laranja') {
+                    actor.buffs.shield = 2;
+                    logMessage(`🛡️ ${actor.name} ativou <b>Barreira de Duto</b>! Defesa aumentada por 2 turnos.`);
+                    showDamagePopup(gameState.currentTurn === 1 ? 'p1Sprite' : 'p2Sprite', '+DEFESA', '#60a5fa');
+                }
+                else if (actor.id === 'capitao') {
+                    actor.buffs.critBoost = 2;
+                    logMessage(`🎯 ${actor.name} usou <b>Reunião de Emergência</b>! Chance de crítico elevada!`);
+                }
+                else if (actor.id === 'roxo') {
+                    target.buffs.attackDebuff = 2;
+                    logMessage(`🕶️ ${actor.name} usou <b>Sabotagem de Luzes</b>! Ataque de ${target.name} reduzido.`);
+                }
+                else if (actor.id === 'azul') {
+                    let heal = 30;
+                    actor.hp = Math.min(actor.maxHp, actor.hp + heal);
+                    logMessage(`💉 ${actor.name} usou <b>Injeção de Adrenalina</b> e recuperou <b>+${heal} HP</b>!`);
+                    showDamagePopup(gameState.currentTurn === 1 ? 'p1Sprite' : 'p2Sprite', `+${heal} HP`, '#4ade80');
+                }
+                else if (actor.id === 'lima') {
+                    actor.buffs.dodge = 2;
+                    logMessage(`⚡ ${actor.name} usou <b>Passos Furtivos</b>! Esquiva ativada.`);
+                }
+            } 
+            else if (skillNumber === 3) {
+                // Especial Supremo
+                let totalDef = target.def * 0.2; // Ignora 80% da defesa
+                let finalDamage = Math.round((baseDamage * 1.6 * critMult) - totalDef);
+                
+                target.hp = Math.max(0, target.hp - finalDamage);
+                triggerHitAnimation(gameState.currentTurn === 1 ? 'p2Sprite' : 'p1Sprite');
+                showDamagePopup(gameState.currentTurn === 1 ? 'p2Sprite' : 'p1Sprite', `-${finalDamage}`, '#b026ff');
+
+                logMessage(`🔥 <b>ESPECIAL!</b> ${actor.name} executou <b>${actor.skills[3].name}</b> causando devastadores <b>${finalDamage}</b> de dano!`);
+
+                // Efeito bônus do verde na ult
+                if (actor.id === 'verde') {
+                    let heal = Math.round(finalDamage * 0.3);
+                    actor.hp = Math.min(actor.maxHp, actor.hp + heal);
+                    logMessage(`💚 Verde absorveu <b>+${heal} HP</b> do ataque.`);
+                }
+            }
+        }
+
+        function endTurn() {
+            // Processa efeitos de final de turno (Poison, Buffs Cooldown)
+            processTurnEffects(getTurnActor());
+
+            // Reduz Cooldowns das Habilidades
+            const actor = getTurnActor();
+            Object.keys(actor.skills).forEach(key => {
+                if (actor.skills[key].currentCd > 0) {
+                    actor.skills[key].currentCd--;
+                }
+            });
+
+            // Troca o turno
+            gameState.currentTurn = gameState.currentTurn === 1 ? 2 : 1;
+            gameState.round++;
+
+            updateUI();
+
+            // Se for modo PvE e for a vez da IA
+            if (gameState.mode === 'pve' && gameState.currentTurn === 2 && !gameState.isBattleOver) {
+                setTimeout(playAITurn, 1000);
+            }
+        }
+
+        function processTurnEffects(actor) {
+            // Dano por veneno
+            if (actor.buffs.poison > 0) {
+                let poisonDamage = 10;
+                actor.hp = Math.max(0, actor.hp - poisonDamage);
+                actor.buffs.poison--;
+                logMessage(`🤢 ${actor.name} sofreu <b>${poisonDamage}</b> de dano por Veneno.`);
+                showDamagePopup(gameState.currentTurn === 1 ? 'p1Sprite' : 'p2Sprite', `-${poisonDamage}`, '#a3e635');
+            }
+
+            // Decrementa duração dos buffs
+            if (actor.buffs.shield > 0) actor.buffs.shield--;
+            if (actor.buffs.dodge > 0) actor.buffs.dodge--;
+            if (actor.buffs.critBoost > 0) actor.buffs.critBoost--;
+            if (actor.buffs.attackDebuff > 0) actor.buffs.attackDebuff--;
+        }
+
+        function playAITurn() {
+            if (gameState.isBattleOver) return;
+
+            const ai = gameState.p2Char;
+            
+            // Decisão simples e inteligente da IA
+            let chosenSkill = 1;
+
+            if (ai.skills[3].currentCd === 0) {
+                chosenSkill = 3; // Prioriza ult
+            } else if (ai.skills[2].currentCd === 0 && Math.random() < 0.6) {
+                chosenSkill = 2; // Usa tática
+            } else {
+                chosenSkill = 1; // Ataque básico
+            }
+
+            useSkill(chosenSkill);
+        }
+
+        /* ==========================================================================
+           5. ANIMAÇÕES E POPUPS VISUAIS
+           ========================================================================== */
+
+        function triggerHitAnimation(elementId) {
+            const el = document.getElementById(elementId);
+            el.classList.add('anim-hit');
+            setTimeout(() => el.classList.remove('anim-hit'), 500);
+        }
+
+        function showDamagePopup(targetSpriteId, text, color) {
+            const container = document.getElementById(targetSpriteId);
+            const popup = document.createElement('div');
+            popup.className = 'damage-popup';
+            popup.innerText = text;
+            popup.style.color = color;
+            popup.style.left = '30%';
+            popup.style.top = '10%';
+
+            container.appendChild(popup);
+            setTimeout(() => popup.remove(), 1200);
+        }
+
+        function logMessage(msg) {
+            const log = document.getElementById('battleLog');
+            const p = document.createElement('p');
+            p.className = 'text-gray-200 border-l-2 border-cyan-500/50 pl-2 py-0.5';
+            p.innerHTML = msg;
+            log.appendChild(p);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        /* ==========================================================================
+           6. ATUALIZAÇÃO DA INTERFACE (UI & BARS)
+           ========================================================================== */
+
+        function updateUI() {
+            const p1 = gameState.p1Char;
+            const p2 = gameState.p2Char;
+
+            // Barras de HP
+            const p1HpPercent = Math.max(0, (p1.hp / p1.maxHp) * 100);
+            const p2HpPercent = Math.max(0, (p2.hp / p2.maxHp) * 100);
+
+            document.getElementById('p1HpBar').style.width = `${p1HpPercent}%`;
+            document.getElementById('p2HpBar').style.width = `${p2HpPercent}%`;
+
+            document.getElementById('p1HpText').innerText = `${p1.hp}/${p1.maxHp}`;
+            document.getElementById('p2HpText').innerText = `${p2.hp}/${p2.maxHp}`;
+
+            // Indicadores de Buffs/Badges
+            updateStatusBadges('p1StatusBadges', p1.buffs);
+            updateStatusBadges('p2StatusBadges', p2.buffs);
+
+            // Atualizar botões para o turno atual
+            const activeActor = getTurnActor();
+            const isP1Turn = gameState.currentTurn === 1;
+
+            document.getElementById('turnIndicator').innerText = `RODADA ${Math.ceil(gameState.round / 2)}: TURNO DE ${activeActor.name.toUpperCase()}`;
+            document.getElementById('activePlayerTurnText').innerText = activeActor.name;
+            document.getElementById('activePlayerTurnText').style.color = activeActor.color;
+
+            // Atualiza Textos dos Botões com as habilidades do personagem atual
+            for (let i = 1; i <= 3; i++) {
+                const sk = activeActor.skills[i];
+                document.getElementById(`bSkill${i}Title`).innerText = sk.name;
+                document.getElementById(`bSkill${i}Desc`).innerText = sk.desc;
+                
+                const cdElem = document.getElementById(`bSkill${i}Cd`);
+                if (cdElem) cdElem.innerText = `CD: ${sk.currentCd}/${sk.cd}`;
+
+                const btn = document.getElementById(`btnSkill${i}`);
+                // Desabilita se for turno da IA ou se habilidade estiver em cooldown
+                const isAiTurn = (gameState.mode === 'pve' && !isP1Turn);
+                btn.disabled = isAiTurn || (sk.currentCd > 0);
+            }
+        }
+
+        function updateStatusBadges(containerId, buffs) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            if (buffs.poison > 0) {
+                container.innerHTML += `<span class="bg-green-900/80 text-green-300 text-[9px] px-1.5 py-0.5 rounded border border-green-500">🤢 Veneno (${buffs.poison})</span>`;
+            }
+            if (buffs.shield > 0) {
+                container.innerHTML += `<span class="bg-blue-900/80 text-blue-300 text-[9px] px-1.5 py-0.5 rounded border border-blue-500">🛡️ Escudo (${buffs.shield})</span>`;
+            }
+            if (buffs.dodge > 0) {
+                container.innerHTML += `<span class="bg-yellow-900/80 text-yellow-300 text-[9px] px-1.5 py-0.5 rounded border border-yellow-500">💨 Esquiva (${buffs.dodge})</span>`;
+            }
+            if (buffs.attackDebuff > 0) {
+                container.innerHTML += `<span class="bg-purple-900/80 text-purple-300 text-[9px] px-1.5 py-0.5 rounded border border-purple-500">👁️ Cego (${buffs.attackDebuff})</span>`;
+            }
+        }
+
+        /* ==========================================================================
+           7. CONDIÇÃO DE VITÓRIA E REINÍCIO
+           ========================================================================== */
+
+        function checkBattleEnd() {
+            if (gameState.p1Char.hp <= 0 || gameState.p2Char.hp <= 0) {
+                gameState.isBattleOver = true;
+
+                const winner = gameState.p1Char.hp > 0 ? gameState.p1Char : gameState.p2Char;
+                const loser = gameState.p1Char.hp > 0 ? gameState.p2Char : gameState.p1Char;
+
+                setTimeout(() => {
+                    document.getElementById('modalVictory').classList.remove('hidden');
+                    document.getElementById('victoryTitle').innerText = `VITÓRIA DE ${winner.name.toUpperCase()}!`;
+                    document.getElementById('victoryTitle').style.color = winner.color;
+                    document.getElementById('victoryDesc').innerText = `${loser.name} foi superado no combate da Skeld!`;
+
+                    document.getElementById('victoryStats').innerHTML = `
+                        <div class="flex justify-between"><span>Rodadas Totais:</span> <b class="text-cyan-300">${Math.ceil(gameState.round / 2)}</b></div>
+                        <div class="flex justify-between"><span>Vida Restante:</span> <b class="text-green-400">${winner.hp} HP</b></div>
+                    `;
+                }, 600);
+
+                return true;
+            }
+            return false;
+        }
+
+        function restartBattle() {
+            document.getElementById('modalVictory').classList.add('hidden');
+            // Restaura HP e Cooldowns
+            gameState.p1Char.hp = gameState.p1Char.maxHp;
+            gameState.p2Char.hp = gameState.p2Char.maxHp;
+            gameState.p1Char.buffs = { poison: 0, shield: 0, dodge: 0, critBoost: 0, attackDebuff: 0 };
+            gameState.p2Char.buffs = { poison: 0, shield: 0, dodge: 0, critBoost: 0, attackDebuff: 0 };
+
+            for (let i = 1; i <= 3; i++) {
+                gameState.p1Char.skills[i].currentCd = 0;
+                gameState.p2Char.skills[i].currentCd = 0;
+            }
+
+            document.getElementById('battleLog').innerHTML = '';
+            startBattle();
+        }
+
+        function resetToMenu() {
+            document.getElementById('modalVictory').classList.add('hidden');
+            document.getElementById('screenBattle').classList.add('hidden');
+            document.getElementById('screenCharSelect').classList.add('hidden');
+            document.getElementById('screenModeSelect').classList.remove('hidden');
+            document.getElementById('btnRestart').classList.add('hidden');
+            document.getElementById('battleLog').innerHTML = '';
+        }
+
+        /* Fundo Dinâmico de Estrelas Gerado em JS */
+        function createStars() {
+            const container = document.getElementById('starsBg');
+            for (let i = 0; i < 70; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.width = `${Math.random() * 3 + 1}px`;
+                star.style.height = star.style.width;
+                star.style.left = `${Math.random() * 100}vw`;
+                star.style.top = `${Math.random() * 100}vh`;
+                star.style.animationDuration = `${Math.random() * 8 + 4}s`;
+                container.appendChild(star);
+            }
+        }
+
+        window.onload = () => {
+            createStars();
+        };
+    </script>
+</body>
+</html>
